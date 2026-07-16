@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="Vaulty" width="360"/>
+  <img src="docs/assets/logo.png" alt="Vaulty" width="480"/>
 </p>
 
 <p align="center">
