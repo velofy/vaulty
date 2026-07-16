@@ -75,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         registerHotKey()
         requestAccessibilityIfNeeded()
-        print("vaulty: running — ⌘⇧L to lock · Control Panel from menu bar")
+        print("vaulty: running - ⌘⇧L to lock · Control Panel from menu bar")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -101,7 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if let button = statusItem.button {
             button.title = isLocked ? "●" : "◐"
-            button.toolTip = "Vaulty — ⌘⇧L to lock"
+            button.toolTip = "Vaulty - ⌘⇧L to lock"
         }
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Lock Screen (⌘⇧L)", action: #selector(lock), keyEquivalent: "l"))
@@ -509,11 +509,26 @@ final class ControlPanelController: NSObject, NSWindowDelegate {
 
 // MARK: - Lock window
 
+/// Rounded dark panel drawn without layer-backing the text field hierarchy
+/// (layer-backed ancestors make NSSecureTextField render in the wrong place).
+final class LockCardView: NSView {
+    override var isOpaque: Bool { false }
+    override func draw(_ dirtyRect: NSRect) {
+        let path = NSBezierPath(roundedRect: bounds, xRadius: 18, yRadius: 18)
+        NSColor.black.withAlphaComponent(0.62).setFill()
+        path.fill()
+        NSColor.white.withAlphaComponent(0.14).setStroke()
+        path.lineWidth = 1
+        path.stroke()
+    }
+}
+
 final class LockWindow: NSPanel {
     private weak var controller: AppDelegate?
     private let passwordField = NSSecureTextField(frame: .zero)
     private let hintLabel = NSTextField(labelWithString: "")
     private let messageLabel = NSTextField(labelWithString: "")
+    private var cardView: LockCardView!
 
     init(screen: NSScreen, controller: AppDelegate) {
         self.controller = controller
@@ -537,6 +552,7 @@ final class LockWindow: NSPanel {
         self.isReleasedWhenClosed = false
         self.animationBehavior = .none
         self.sharingType = .none
+        self.appearance = NSAppearance(named: .darkAqua)
 
         buildUI(in: frame, message: controller.settings.message)
     }
@@ -545,60 +561,83 @@ final class LockWindow: NSPanel {
     override var canBecomeMain: Bool { true }
 
     private func buildUI(in frame: NSRect, message: String) {
+        // Do NOT wantsLayer on ancestors of the text field - that breaks field geometry.
         let container = NSView(frame: NSRect(x: 0, y: 0, width: frame.width, height: frame.height))
-        container.wantsLayer = true
         contentView = container
 
-        let cardW: CGFloat = 420
-        let cardH: CGFloat = 188
-        let card = NSView(frame: NSRect(
+        let cardW: CGFloat = 400
+        let cardH: CGFloat = 220
+        cardView = LockCardView(frame: NSRect(
             x: (frame.width - cardW) / 2,
             y: (frame.height - cardH) / 2,
             width: cardW,
             height: cardH
         ))
-        card.wantsLayer = true
-        card.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.58).cgColor
-        card.layer?.cornerRadius = 16
-        container.addSubview(card)
+        container.addSubview(cardView)
+
+        let lockImg = NSImageView(frame: NSRect(x: (cardW - 28) / 2, y: 168, width: 28, height: 28))
+        if let sym = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: "Lock") {
+            let cfg = NSImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+            lockImg.image = sym.withSymbolConfiguration(cfg)
+        }
+        lockImg.contentTintColor = NSColor.white.withAlphaComponent(0.85)
+        lockImg.imageScaling = .scaleProportionallyUpOrDown
+        cardView.addSubview(lockImg)
 
         let brand = NSTextField(labelWithString: "Vaulty")
-        brand.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        brand.textColor = NSColor.white.withAlphaComponent(0.5)
+        brand.isEditable = false
+        brand.isSelectable = false
+        brand.isBordered = false
+        brand.drawsBackground = false
+        brand.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        brand.textColor = NSColor.white.withAlphaComponent(0.45)
         brand.alignment = .center
-        brand.frame = NSRect(x: 24, y: 148, width: cardW - 48, height: 18)
-        card.addSubview(brand)
+        brand.frame = NSRect(x: 24, y: 146, width: cardW - 48, height: 16)
+        cardView.addSubview(brand)
 
         messageLabel.stringValue = message
-        messageLabel.font = NSFont.systemFont(ofSize: 18, weight: .semibold)
+        messageLabel.isEditable = false
+        messageLabel.isSelectable = false
+        messageLabel.isBordered = false
+        messageLabel.drawsBackground = false
+        messageLabel.font = NSFont.systemFont(ofSize: 17, weight: .semibold)
         messageLabel.textColor = .white
         messageLabel.alignment = .center
         messageLabel.lineBreakMode = .byWordWrapping
         messageLabel.maximumNumberOfLines = 2
-        messageLabel.frame = NSRect(x: 24, y: 108, width: cardW - 48, height: 36)
-        card.addSubview(messageLabel)
+        messageLabel.frame = NSRect(x: 24, y: 108, width: cardW - 48, height: 34)
+        cardView.addSubview(messageLabel)
 
-        passwordField.frame = NSRect(x: 48, y: 54, width: cardW - 96, height: 32)
-        passwordField.font = NSFont.systemFont(ofSize: 16)
+        // Standard dark secure field - sits correctly without custom layer chrome
+        let fieldW: CGFloat = cardW - 96
+        passwordField.frame = NSRect(x: 48, y: 52, width: fieldW, height: 32)
+        passwordField.font = NSFont.systemFont(ofSize: 15)
         passwordField.placeholderString = "Password"
         passwordField.focusRingType = .none
         passwordField.isBezeled = true
         passwordField.bezelStyle = .roundedBezel
-        passwordField.wantsLayer = true
+        passwordField.drawsBackground = true
+        passwordField.isEditable = true
+        passwordField.isSelectable = true
+        passwordField.appearance = NSAppearance(named: .darkAqua)
         passwordField.target = self
         passwordField.action = #selector(submitPassword)
-        card.addSubview(passwordField)
+        cardView.addSubview(passwordField)
 
         hintLabel.stringValue = ""
+        hintLabel.isEditable = false
+        hintLabel.isSelectable = false
+        hintLabel.isBordered = false
+        hintLabel.drawsBackground = false
         hintLabel.font = NSFont.systemFont(ofSize: 12)
-        hintLabel.textColor = NSColor.systemRed
+        hintLabel.textColor = NSColor.white.withAlphaComponent(0.55)
         hintLabel.alignment = .center
         hintLabel.frame = NSRect(x: 24, y: 22, width: cardW - 48, height: 18)
-        card.addSubview(hintLabel)
+        cardView.addSubview(hintLabel)
 
         let catcher = ClickCatcher(frame: container.bounds)
         catcher.autoresizingMask = [.width, .height]
-        container.addSubview(catcher, positioned: .below, relativeTo: card)
+        container.addSubview(catcher, positioned: .below, relativeTo: cardView)
     }
 
     func focusPasswordField() {
@@ -610,10 +649,18 @@ final class LockWindow: NSPanel {
         if controller?.tryUnlock(with: entered) == true { return }
         hintLabel.stringValue = "Wrong password"
         passwordField.stringValue = ""
-        let anim = CAKeyframeAnimation(keyPath: "transform.translation.x")
-        anim.values = [-8, 8, -6, 6, -3, 3, 0]
-        anim.duration = 0.35
-        passwordField.layer?.add(anim, forKey: "shake")
+        let origin = cardView.frame.origin
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.05
+            cardView.animator().setFrameOrigin(NSPoint(x: origin.x - 8, y: origin.y))
+        } completionHandler: {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.05
+                self.cardView.animator().setFrameOrigin(NSPoint(x: origin.x + 8, y: origin.y))
+            } completionHandler: {
+                self.cardView.setFrameOrigin(origin)
+            }
+        }
         focusPasswordField()
     }
 }

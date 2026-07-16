@@ -17,17 +17,17 @@
 
 ## Features
 
-- Transparent overlay — desktop stays live underneath
+- Transparent overlay - desktop stays live underneath
 - Password unlock only (no Escape hatch)
 - **⌘⇧L** global shortcut to lock (command + shift + L)
 - Control Panel to set password, lock message, and dim opacity
-- Menu bar app (◐) — lightweight, local-only settings
+- Menu bar app (◐) - lightweight, local-only settings
 
 ## Install
 
 Download **`Vaulty-x.y.z-macos.zip`** from [Releases](https://github.com/anishfyi/vaulty/releases/latest), unzip, drag **Vaulty.app** to Applications (or `~/Applications`), then open it.
 
-Unsigned build — if macOS says it's damaged:
+Unsigned build - if macOS says it's damaged:
 
 ```sh
 xattr -cr ~/Applications/Vaulty.app
@@ -46,7 +46,7 @@ Then open normally. Grant **Accessibility** when prompted for full shortcut bloc
 | Control Panel | Menu bar ◐ → Control Panel… |
 | Quit | Menu bar ◐ → Quit Vaulty (disabled while locked) |
 
-Default password on first launch: `anishisagentic` — change it in the Control Panel.
+Default password on first launch: `anishisagentic` - change it in the Control Panel.
 
 Settings live at:
 

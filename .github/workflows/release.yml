@@ -29,11 +29,11 @@ jobs:
           draft: false
           generate_release_notes: true
           body: |
-            **Vaulty** — transparent WIP screen lock for macOS.
+            **Vaulty** - transparent WIP screen lock for macOS.
 
             1. Download `Vaulty-*-macos.zip`
             2. Unzip and drag **Vaulty.app** to Applications (or `~/Applications`)
-            3. Open it — menu bar shows ◐
+            3. Open it - menu bar shows ◐
             4. Lock with **⌘⇧L**. Unlock with your password.
 
             If macOS says the app is damaged:
