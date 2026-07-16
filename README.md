@@ -5,8 +5,8 @@
 Your terminals stay visible and keep running. Nobody can click or type into them without the password. No Escape skip.
 
 <p>
-  <a href="https://anishfyi.github.io/veil-lock/">Website</a> ·
-  <a href="https://github.com/anishfyi/veil-lock/releases/latest">Download</a>
+  <a href="https://anishfyi.github.io/vaulty/">Website</a> ·
+  <a href="https://github.com/anishfyi/vaulty/releases/latest">Download</a>
 </p>
 
 ## Features
@@ -19,7 +19,7 @@ Your terminals stay visible and keep running. Nobody can click or type into them
 
 ## Install
 
-Download **`Vaulty-x.y.z-macos.zip`** from [Releases](https://github.com/anishfyi/veil-lock/releases/latest), unzip, drag **Vaulty.app** to Applications (or `~/Applications`), then open it.
+Download **`Vaulty-x.y.z-macos.zip`** from [Releases](https://github.com/anishfyi/vaulty/releases/latest), unzip, drag **Vaulty.app** to Applications (or `~/Applications`), then open it.
 
 Unsigned build — if macOS says it's damaged:
 
