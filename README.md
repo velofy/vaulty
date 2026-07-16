@@ -19,7 +19,7 @@
 
 - Transparent overlay — desktop stays live underneath
 - Password unlock only (no Escape hatch)
-- **⌘⇧L** global shortcut to lock
+- **⌘⇧L** global shortcut to lock (command + shift + L)
 - Control Panel to set password, lock message, and dim opacity
 - Menu bar app (◐) — lightweight, local-only settings
 
