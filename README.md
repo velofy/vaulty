@@ -1,10 +1,16 @@
-# Vaulty
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Vaulty" width="360"/>
+</p>
 
-**Transparent WIP screen lock for macOS.**
+<p align="center">
+  <strong>Transparent WIP screen lock for macOS.</strong>
+</p>
 
-Your terminals stay visible and keep running. Nobody can click or type into them without the password. No Escape skip.
+<p align="center">
+  Your terminals stay visible and keep running. Nobody can click or type into them without the password. No Escape skip.
+</p>
 
-<p>
+<p align="center">
   <a href="https://anishfyi.github.io/vaulty/">Website</a> ·
   <a href="https://github.com/anishfyi/vaulty/releases/latest">Download</a>
 </p>
