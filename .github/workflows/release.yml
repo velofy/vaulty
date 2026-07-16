@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Vaulty.app
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then VER="1.0.0"; fi
+          make package VERSION="$VER"
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || 'v1.0.0' }}
+          name: Vaulty ${{ github.ref_name || 'v1.0.0' }}
+          draft: false
+          generate_release_notes: true
+          body: |
+            **Vaulty** — transparent WIP screen lock for macOS.
+
+            1. Download `Vaulty-*-macos.zip`
+            2. Unzip and drag **Vaulty.app** to Applications (or `~/Applications`)
+            3. Open it — menu bar shows ◐
+            4. Lock with **⌘⇧L**. Unlock with your password.
+
+            If macOS says the app is damaged:
+            ```sh
+            xattr -cr ~/Applications/Vaulty.app
+            ```
+
+            Change the password in **Control Panel** (menu bar ◐).
+          files: dist/Vaulty-*-macos.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pages:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy docs to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          force_orphan: true
