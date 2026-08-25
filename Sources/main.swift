@@ -75,6 +75,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         registerHotKey()
         requestAccessibilityIfNeeded()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screenConfigurationChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
         print("vaulty: running - ⌘⇧L to lock · Control Panel from menu bar")
     }
 
@@ -171,6 +177,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         startFocusGuard()
         installEventTap()
+    }
+
+    /// Displays can be connected, disconnected, or rearranged while locked;
+    /// every attached screen must stay covered or it exposes the desktop.
+    @objc private func screenConfigurationChanged() {
+        guard isLocked else { return }
+
+        var orphans = [CGDirectDisplayID: LockWindow]()
+        for w in lockWindows { orphans[w.displayID] = w }
+
+        lockWindows = NSScreen.screens.map { screen in
+            if let existing = orphans.removeValue(forKey: LockWindow.displayID(for: screen)) {
+                existing.setFrame(screen.frame, display: true)
+                return existing
+            }
+            let w = LockWindow(screen: screen, controller: self)
+            w.orderFrontRegardless()
+            return w
+        }
+        for w in orphans.values { w.orderOut(nil) }
+
+        if !lockWindows.contains(where: { $0.isKeyWindow }) {
+            let key = lockWindows.first(where: { $0.screen == NSScreen.main }) ?? lockWindows.first
+            key?.makeKey()
+            key?.focusPasswordField()
+        }
     }
 
     func tryUnlock(with password: String) -> Bool {
@@ -282,9 +314,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown {
+            // CGEvent locations are top-left-origin; window frames are
+            // bottom-left-origin Cocoa coordinates. Flip about the primary
+            // display height or the test is wrong on external displays.
             let loc = event.location
+            let cocoaPoint = NSPoint(x: loc.x, y: CGDisplayBounds(CGMainDisplayID()).height - loc.y)
             for w in lockWindows {
-                if NSPointInRect(NSPoint(x: loc.x, y: loc.y), w.frame) {
+                if NSPointInRect(cocoaPoint, w.frame) {
                     return Unmanaged.passUnretained(event)
                 }
             }
@@ -530,8 +566,17 @@ final class LockWindow: NSPanel {
     private let messageLabel = NSTextField(labelWithString: "")
     private var cardView: LockCardView!
 
+    /// Captured at init: `NSScreen` instances are not stable across
+    /// display reconfiguration, the CGDirectDisplayID is.
+    let displayID: CGDirectDisplayID
+
+    static func displayID(for screen: NSScreen) -> CGDirectDisplayID {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value ?? 0
+    }
+
     init(screen: NSScreen, controller: AppDelegate) {
         self.controller = controller
+        self.displayID = LockWindow.displayID(for: screen)
         let frame = screen.frame
         let dim = CGFloat(controller.settings.dimOpacity)
         super.init(
@@ -573,6 +618,9 @@ final class LockWindow: NSPanel {
             width: cardW,
             height: cardH
         ))
+        // Flexible margins keep the card centered when the screen's
+        // resolution or arrangement changes while locked.
+        cardView.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin, .maxYMargin]
         container.addSubview(cardView)
 
         let lockImg = NSImageView(frame: NSRect(x: (cardW - 28) / 2, y: 168, width: 28, height: 28))
