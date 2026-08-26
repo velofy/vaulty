@@ -27,15 +27,22 @@
 
 Download **`Vaulty-x.y.z-macos.zip`** from [Releases](https://github.com/anishfyi/vaulty/releases/latest), unzip, drag **Vaulty.app** to Applications (or `~/Applications`), then open it.
 
-Unsigned build - if macOS says it's damaged:
+The build is code-signed but **not notarized** (that needs a paid Apple Developer
+account), so on first launch macOS says *"Apple could not verify Vaulty is free of
+malware"*. Click **Done** (never "Move to Bin"), then either:
+
+- open **System Settings → Privacy & Security**, scroll down to the "Vaulty was
+  blocked" line and click **Open Anyway**, or
+- clear the download quarantine yourself:
 
 ```sh
-xattr -cr ~/Applications/Vaulty.app
+xattr -dr com.apple.quarantine ~/Applications/Vaulty.app
 # or:
-xattr -cr /Applications/Vaulty.app
+xattr -dr com.apple.quarantine /Applications/Vaulty.app
 ```
 
-Then open normally. Grant **Accessibility** when prompted for full shortcut blocking (Cmd+Tab etc.).
+Then open normally. On macOS 15 (Sequoia) and later, right-click → **Open** no longer
+bypasses this; Apple removed that shortcut. Grant **Accessibility** when prompted for full shortcut blocking (Cmd+Tab etc.).
 
 ## Use
 

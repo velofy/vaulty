@@ -15,11 +15,90 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Vaulty.app
+      - name: Resolve version
         run: |
+          set -euo pipefail
           VER="${GITHUB_REF_NAME#v}"
           if [ "$GITHUB_REF_TYPE" != "tag" ]; then VER="1.0.0"; fi
-          make package VERSION="$VER"
+          echo "VER=$VER" >>"$GITHUB_ENV"
+
+      # Import a Developer ID certificate, but only when the secrets actually exist.
+      # Without them the build falls back to ad-hoc signing ("-"), which still seals
+      # the bundle and keeps macOS from calling the download "damaged". It just cannot
+      # clear Gatekeeper, which requires notarization.
+      - name: Configure Apple signing
+        id: signing
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$CERT" ] || [ -z "$SIGNING_IDENTITY" ]; then
+            echo "::notice::No Developer ID secrets set. Building ad-hoc signed; macOS will show the \"could not verify\" prompt on first launch."
+            echo "identity=-" >>"$GITHUB_OUTPUT"
+            echo "notarize=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PW="$(openssl rand -base64 24)"
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 900 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+
+          printf '%s' "$CERT" | base64 --decode >"$CERT_PATH"
+          security import "$CERT_PATH" -k "$KEYCHAIN" -P "$CERT_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$CERT_PATH"
+
+          # Let codesign use the key without an interactive prompt.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null
+
+          # Prepend to the search list rather than replacing it, so the system and
+          # login keychains stay reachable.
+          EXISTING="$(security list-keychains -d user | sed -e 's/[",]//g' | tr -d ' ' | tr '\n' ' ')"
+          security list-keychains -d user -s "$KEYCHAIN" $EXISTING
+
+          security find-identity -v -p codesigning "$KEYCHAIN"
+          echo "identity=$SIGNING_IDENTITY" >>"$GITHUB_OUTPUT"
+
+          if [ -n "$NOTARY_APPLE_ID" ] && [ -n "$NOTARY_PASSWORD" ] && [ -n "$NOTARY_TEAM_ID" ]; then
+            echo "notarize=true" >>"$GITHUB_OUTPUT"
+            echo "::notice::Developer ID signing + notarization enabled."
+          else
+            echo "notarize=false" >>"$GITHUB_OUTPUT"
+            echo "::warning::Developer ID signing enabled, but APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID are incomplete. The build will be signed but NOT notarized, so Gatekeeper will still warn."
+          fi
+
+      - name: Build and package Vaulty.app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: make package VERSION="$VER"
+
+      - name: Notarize and staple
+        if: steps.signing.outputs.notarize == 'true'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ steps.signing.outputs.identity }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: make notarize VERSION="$VER"
+
+      - name: Verify the signature we are about to ship
+        run: |
+          set -euo pipefail
+          codesign --verify --strict --verbose=2 build/Vaulty.app
+          echo "--- Gatekeeper verdict (informational) ---"
+          spctl -a -vvv -t exec build/Vaulty.app || true
+          syspolicy_check distribution build/Vaulty.app || true
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
@@ -36,10 +115,12 @@ jobs:
             3. Open it - menu bar shows ◐
             4. Lock with **⌘⇧L**. Unlock with your password.
 
-            If macOS says the app is damaged:
-            ```sh
-            xattr -cr ~/Applications/Vaulty.app
-            ```
+            Grant **Accessibility** when prompted for full shortcut blocking (Cmd+Tab etc.).
+
+            If macOS says *"Apple could not verify Vaulty is free of malware"*, this build
+            is not notarized. Click **Done** (not "Move to Bin"), then open
+            **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**.
+            Right-click → Open no longer works as a bypass on macOS 15 and later.
 
             Change the password in **Control Panel** (menu bar ◐).
           files: dist/Vaulty-*-macos.zip
