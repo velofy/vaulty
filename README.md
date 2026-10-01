@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="Vaulty" width="360"/>
+  <a href="https://velofy.co/vaulty/"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/velofy/vaulty/main/docs/assets/tile-dark.svg">
+    <img alt="Vaulty" src="https://raw.githubusercontent.com/velofy/vaulty/main/docs/assets/tile-light.svg" width="360">
+  </picture></a>
 </p>
 
 # Vaulty
